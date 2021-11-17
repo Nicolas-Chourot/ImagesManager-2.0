@@ -94,7 +94,6 @@ class ValidationProvider{
     }
 
     isValid() {
-        console.log("here");
         let formValid = true;
         this.validationControls.forEach( validationControl => {
             if (!validationControl.isValid()) {

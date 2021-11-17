@@ -190,7 +190,7 @@
 
         let editMode = false;
         let addMode = false;
-        let newProfil = false;
+        let editProfil = false;
         let connected = false;
         let queryString = "";
         let search = "";
@@ -239,7 +239,7 @@
 
         function installPeriodicphotosListRefresh() {
             setInterval(() => {
-                console.log("pausephotosListPeriodicRefresh", pausephotosListPeriodicRefresh);
+                //console.log("pausephotosListPeriodicRefresh", pausephotosListPeriodicRefresh);
                 if (!pausephotosListPeriodicRefresh) getphotos();
             }, periodicRefreshPeriod * 1000);
         }
@@ -257,21 +257,21 @@
                         id: 'btn-Savephoto',
                         text: 'Soumettre',
                         click: function () {
-                           
+
                             // Ajout d'un photo
                             if (addMode) {
                                 let photo = makephotoFromphotoForm(false);
                                 if (photoValidationProvider.isValid()) {
                                     $("#dialog-waiting").dialog('open');
                                     $("#dialog-photoForm").dialog("close");
-                                    webAPI_POST(photo, () => { updateUI();  }, AlertError);
+                                    webAPI_POST(photo, () => { updateUI(); }, AlertError);
                                 }
                             } else {
                                 let photo = makephotoFromphotoForm(true);
                                 if (photoValidationProvider.isValid()) {
                                     $("#dialog-waiting").dialog('open');
                                     $("#dialog-photoForm").dialog("close");
-                                    webAPI_PUT(photo, () => { updateUI();  }, AlertError);
+                                    webAPI_PUT(photo, () => { updateUI(); }, AlertError);
                                 }
                             }
                         }
@@ -306,22 +306,29 @@
                 $("#btn_OpenAddphotoDialog").show();
             });
         }
+        function operationOnGoing() {
+            return addMode || editMode || editProfil;
+        }
         function OpenAddphotoDialog() {
-            addMode = true;
-            $('#dialog-photoForm').dialog('option', 'title', 'Ajout de photo');
-            $("#dialog-photoForm").dialog('open');
+            if (!operationOnGoing()) {
+                addMode = true;
+                $('#dialog-photoForm').dialog('option', 'title', 'Ajout de photo');
+                $("#dialog-photoForm").dialog('open');
+            }
         }
         function OpenEditphotoDialog(e) {
             e.preventDefault();
-            editMode = true;
-            $('#dialog-photoForm').dialog('option', 'title', 'Modification de photo');
-            $("#dialog-photoForm").dialog('open');
-            let photoId = e.currentTarget.id.split('_')[1];
-            console.log("Edit photo open dialog", photoId)
-            webAPI_GET(photoId, fillEditphotoForm, AlertError);
+            if (!operationOnGoing()) {
+                editMode = true;
+                $('#dialog-photoForm').dialog('option', 'title', 'Modification de photo');
+                $("#dialog-photoForm").dialog('open');
+                let photoId = e.currentTarget.id.split('_')[1];
+                //console.log("Edit photo open dialog", photoId)
+                webAPI_GET(photoId, fillEditphotoForm, AlertError);
+            }
         }
         function fillEditphotoForm(photo) {
-            console.log(photo)
+            //console.log(photo)
             $('#photoId').val(photo.Id);
             $('#photoUserId').val(photo.UserId);
             $('#photoGUID').val(photo.GUID);
@@ -365,9 +372,11 @@
         }
         function deletephoto(e) {
             e.preventDefault();
-            // Extraction du Id du photo inscrit dans l'attribut id de l'élément déclencheur de l'événement click
-            let photoId = parseInt(e.currentTarget.id.split('_')[1]);
-            webAPI_GET(photoId, confirmDeletephoto, AlertError);
+            if (!operationOnGoing()) {
+                // Extraction du Id du photo inscrit dans l'attribut id de l'élément déclencheur de l'événement click
+                let photoId = parseInt(e.currentTarget.id.split('_')[1]);
+                webAPI_GET(photoId, confirmDeletephoto, AlertError);
+            }
         }
         function confirmDeletephoto(photo) {
             $.confirm({
@@ -394,19 +403,22 @@
                             id: 'btn-SaveProfil',
                             text: 'Enregister',
                             click: function () {
-                                let profilFromForm = {
-                                    Id: parseInt($("#profilId").val()),
-                                    Name: $("#profilUsername").val(),
-                                    Email: $("#profilEmail").val(),
-                                    Password: $("#profilPassword").val(),
-                                    AvatarGUID: $("#avatarGUID").val(),
-                                    ImageData: getImageData('avatar')
-                                }
-                                if (connected)
-                                    webAPI_ChangeProfil(profilFromForm, () => { $("#dialog-profilForm").dialog("close"); updateUI(); }, AlertError);
-                                else {
-                                    profilFromForm.Id = 0;
-                                    webAPI_Register(profilFromForm, () => { $("#dialog-profilForm").dialog("close"); updateUI(); }, AlertError);
+                                if (profilValidationProvider.isValid()) {
+                                    let profilFromForm = {
+                                        Id: parseInt($("#profilId").val()),
+                                        Name: $("#profilUsername").val(),
+                                        Email: $("#profilEmail").val(),
+                                        Password: $("#profilPassword").val(),
+                                        AvatarGUID: $("#avatarGUID").val(),
+                                        ImageData: getImageData('avatar')
+                                    }
+                                    if (connected) {
+                                        webAPI_ChangeProfil(profilFromForm, () => { $("#dialog-profilForm").dialog("close"); updateUI(); }, AlertError);
+                                    }
+                                    else {
+                                        profilFromForm.Id = 0;
+                                        webAPI_Register(profilFromForm, () => { $("#dialog-profilForm").dialog("close"); updateUI(); }, AlertError);
+                                    }
                                 }
                             }
                         },
@@ -428,6 +440,7 @@
                 });
             $('#dialog-profilForm').on('dialogopen', function (event) {
                 pausephotosListPeriodicRefresh = true;
+                resetProfilValidation();
                 $("#profilId").val(0);
                 $('#btn-SaveProfil').addClass("btn btn-primary");
                 $('#btn-deleteProfil').addClass("btn btn-danger");
@@ -456,14 +469,17 @@
             });
             $('#dialog-profilForm').on('dialogclose', function (event) {
                 pausephotosListPeriodicRefresh = false;
-                resetProfilValidation();
+                editProfil = false;
                 if (connected)
                     $("#btn_OpenAddphotoDialog").show();
             });
         }
         function OpenProfilDialog() {
-            pausephotosListPeriodicRefresh = true;
-            $("#dialog-profilForm").dialog('open');
+            if (!operationOnGoing()) {
+                pausephotosListPeriodicRefresh = true;
+                editProfil = true;
+                $("#dialog-profilForm").dialog('open');
+            }
         }
         function confirmDeleteAccount() {
             pausephotosListPeriodicRefresh = true;
@@ -684,19 +700,19 @@
             getphotos(true);
         }
         function getphotos(forceRefreshphotoList = false) {
-            console.log("Get Photos: ", queryString);
+            //console.log("Get Photos: ", queryString);
             if (forceRefreshphotoList) {
                 webAPI_GET_ALL(queryString, updatephotoList, AlertError);
-                console.log("Forced Downloading photos");
+                //console.log("Forced Downloading photos");
             } else
                 webAPI_HEAD(checkETag, AlertError);
         }
         function checkETag(ETag) {
             if (ETag != currentETag) {
                 webAPI_GET_ALL(queryString, updatephotoList, AlertError);
-                console.log("new ETag Downloading photos");
+                // console.log("new ETag Downloading photos");
             } else {
-                console.log("photos list up to date");
+                //console.log("photos list up to date");
             }
         }
         function createCssClass(name, rules) {
@@ -715,7 +731,7 @@
         }
         function statusToString(status) {
             let text = "Le server ne répond pas.";
-            console.log(status)
+            //console.log(status)
             switch (status) {
                 case 401: text = "<br>Requête non autorisée. <br>Vous devez être connecté."; break;
                 case 409: text = "<br>Conflit de données. <br>Requête refusée."; break;
@@ -778,7 +794,6 @@
             return "";
         }
         function initProfilValidation() {
-            profilValidationProvider = null;
             profilValidationProvider = new ValidationProvider("profilForm");
             profilValidationProvider.addControl("profilUsername", validate_ProfilUsername, false /*validateOnLeave*/);
             profilValidationProvider.addControl("profilEmail", validate_ProfilEmail, false /*validateOnLeave*/);
@@ -807,9 +822,9 @@
             return "";
         }
         function validate_ProfilConfirmPassword() {
+            let TBX_Password = document.getElementById("profilPassword");;
             let TBX_Confirm = document.getElementById("profilConfirmPassword");
-            if (TBX_Confirm.value != "") {
-                let TBX_Password = document.getElementById("profilPassword");
+            if (TBX_Password.value != "") {
                 if (TBX_Confirm.value != TBX_Password.value)
                     return "Différent du mot de passe."
             }
@@ -895,7 +910,7 @@
             let loggedUserId = (retrieveLoggedUser() ? retrieveLoggedUser().Id : null);
             if (loggedUserId) {
                 photos.forEach(photo => {
-                    console.log(photo);
+                    //console.log(photo);
                     if (photo.UserId == loggedUserId || photo.Shared)
                         $('#photoList').append(thumbNail(photo, loggedUserId));
                 });
