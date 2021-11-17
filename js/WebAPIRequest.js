@@ -3,7 +3,6 @@
  */
 
 const apiBaseURL= "http://localhost:5000";
-//const apiBaseURL = "https://grass-nova-saturn.glitch.me";
 
 function tokenRequestURL() {
     return apiBaseURL + '/token';
